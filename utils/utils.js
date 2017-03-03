@@ -290,11 +290,21 @@ var utils = {
 
     'kubeLib': {
         getDeployer(options, cb) {
-            let ports = options.soajs.registry.serviceConfig.ports;
-            let controllerProxyHost = ((process.env.SOAJS_ENV) ? process.env.SOAJS_ENV.toLowerCase() : 'dev') + '-controller';
+
+            let config = options.deployerConfig, kubeConfig;
+
+            //check if config for kubernetes API endpoint defined in registry.
+            if (config.url) {
+                kubeConfig = config;
+            }
+            else {
+                let ports = options.soajs.registry.serviceConfig.ports;
+                let controllerProxyHost = ((process.env.SOAJS_ENV) ? process.env.SOAJS_ENV.toLowerCase() : 'dev') + '-controller';
+                let kubeProxyURL = 'http://' + controllerProxyHost + ':' + (ports.controller + ports.maintenanceInc) + '/proxySocket';
+                kubeConfig = { url: kubeProxyURL };
+            }
+
             let kubernetes = {};
-            let kubeProxyURL = 'http://' + controllerProxyHost + ':' + (ports.controller + ports.maintenanceInc) + '/proxySocket';
-            let kubeConfig = { url: kubeProxyURL };
 
             kubeConfig.version = 'v1';
             kubernetes.core = new K8Api.Core(kubeConfig);
