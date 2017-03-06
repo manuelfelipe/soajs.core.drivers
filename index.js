@@ -12,6 +12,7 @@ function checkIfSupported(options, cb, fcb) {
 
     if (isSupported) return fcb();
     else return cb({
+        "source": "driver",
         "error": "error",
         "code": 519,
         "msg": errorFile[519]
@@ -156,6 +157,52 @@ module.exports = {
             });
         });
     },
+
+    /**
+     * Create a new namespace (kubernetes only)
+     * @param options
+     * @param cb
+     */
+    createNameSpace (options, cb) {
+        getStrategy(options, (error, strategy) => {
+            utils.checkError(error, 518, cb, () => {
+                checkIfSupported({strategy: strategy, function: 'createNameSpace'}, cb, () => {
+                    strategy.createNameSpace(options, cb);
+                });
+            });
+        });
+    },
+
+    /**
+     * List all namespaces (kubernetes only)
+     * @param options
+     * @param cb
+     */
+    listNameSpaces (options, cb) {
+        getStrategy(options, (error, strategy) => {
+            utils.checkError(error, 518, cb, () => {
+                checkIfSupported({strategy: strategy, function: 'listNameSpaces'}, cb, () => {
+                    strategy.listNameSpaces(options, cb);
+                });
+            });
+        });
+    },
+
+    /**
+     * Delete a namespace (kubernetes only)
+     * @param options
+     * @param cb
+     */
+    deleteNameSpace (options, cb) {
+        getStrategy(options, (error, strategy) => {
+            utils.checkError(error, 518, cb, () => {
+                checkIfSupported({strategy: strategy, function: 'deleteNameSpace'}, cb, () => {
+                    strategy.deleteNameSpace(options, cb);
+                });
+            });
+        });
+    },
+
 
     /**
      * List services/deployments currently available

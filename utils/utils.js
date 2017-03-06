@@ -289,8 +289,22 @@ var utils = {
     },
 
     'kubeLib': {
-        getDeployer(options, cb) {
+        buildNameSpace(options){
+            let namespace = options.deployerConfig.namespace.default;
 
+            if(options.deployerConfig.namespace.perService){
+                //In case of service creation, the service name already contains the env code embedded to it
+                if(options.params.id)
+                    namespace += "-" + options.params.id ;
+
+                else if(options.params.serviceName)
+                    namespace += "-" + options.params.env + "-" + options.params.serviceName;
+            }
+
+            return namespace;
+        },
+
+        getDeployer(options, cb) {
             let config = options.deployerConfig, kubeConfig;
 
             //check if config for kubernetes API endpoint defined in registry.
@@ -300,6 +314,9 @@ var utils = {
             else {
                 let ports = options.soajs.registry.serviceConfig.ports;
                 let controllerProxyHost = ((process.env.SOAJS_ENV) ? process.env.SOAJS_ENV.toLowerCase() : 'dev') + '-controller';
+                let namespace = options.deployerConfig.namespace.default;
+                if (options.deployerConfig.namespace.perService) namespace += '-' + controllerProxyHost;
+                controllerProxyHost += '.' + namespace;
                 let kubeProxyURL = 'http://' + controllerProxyHost + ':' + (ports.controller + ports.maintenanceInc) + '/proxySocket';
                 kubeConfig = { url: kubeProxyURL };
             }
@@ -313,6 +330,18 @@ var utils = {
             kubernetes.extensions = new K8Api.Extensions(kubeConfig);
 
             return cb(null, kubernetes);
+        },
+
+        buildNameSpaceRecord (options) {
+            let record = {
+                "id": options.metadata.name,
+                "name": options.metadata.name,
+                "version": options.metadata.resourceVersion,
+                "status": options.status,
+                "labels": options.metadata.labels
+            }
+
+            return record;
         },
 
         buildNodeRecord (options) {
@@ -377,6 +406,7 @@ var utils = {
                 labels: options.deployment.metadata.labels,
                 env: getEnvVariables(options.deployment.spec.template.spec),
                 ports: getPorts(options.service),
+                namespace: options.deployment.metadata.namespace,
                 tasks: []
             };
 

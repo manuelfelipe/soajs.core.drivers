@@ -24,11 +24,139 @@ describe("Testing kubernetes driver functionality", function() {
 
     options.strategy = "kubernetes";
 
+    //Testing the different namespace methods
+    describe("Testing kubernetes namespace management", function() {
+
+        it("Success - creating global namespace", function(done){
+           options.deployerConfig.namespace ={
+               "default": "soajs",
+               "perService": false
+           };
+
+           options.params = {
+               "serviceName": "testservice",
+               "env": "testenv"
+           };
+
+           drivers.createNameSpace(options, function(error, namespace){
+               assert.ok(namespace);
+               setTimeout(function(){
+                   done();
+               }, 5000);
+           });
+        });
+
+        it("Fail - creating global namespace (namespace already exists)", function(done){
+            options.deployerConfig.namespace ={
+                "default": "soajs",
+                "perService": false
+            };
+
+            options.params = {
+                "serviceName": "testservice",
+                "env": "testenv"
+            };
+
+            drivers.createNameSpace(options, function(error, namespace){
+                assert.equal(error.code, 672);
+                assert.equal(error.msg, "Namespace already exists");
+                assert.ok(error);
+                done();
+            });
+        });
+
+        it("Success - creating perService namespace", function(done){
+            options.deployerConfig.namespace ={
+                "default": "soajs",
+                "perService": true
+            };
+
+            options.params = {
+                "serviceName": "testservice",
+                "env": "testenv"
+            };
+
+            drivers.createNameSpace(options, function(error, namespace){
+                assert.ok(namespace);
+                setTimeout(function(){
+                    done();
+                }, 5000);
+            });
+        });
+
+        it("Fail - creating perService namespace (namespace already exists)", function(done){
+            options.deployerConfig.namespace ={
+                "default": "soajs",
+                "perService": true
+            };
+
+            options.params = {
+                "serviceName": "testservice",
+                "env": "testenv"
+            };
+
+            drivers.createNameSpace(options, function(error, namespace){
+                assert.equal(error.code, 672);
+                assert.equal(error.msg, "Namespace already exists");
+                assert.ok(error);
+                done();
+            });
+        });
+
+        it("Success - list all namespaces", function(done){
+            options.deployerConfig.namespace ={
+                "default": "soajs",
+                "perService": true
+            };
+
+            drivers.listNameSpaces(options, function(error, namespace){
+                assert.ok(namespace);
+                done();
+            });
+        });
+
+        it("Fail - delete a nonexistent namespace", function(done){
+            options.deployerConfig.namespace ={
+                "default": "nonamespace",
+                "perService": false
+            };
+
+            drivers.deleteNameSpace(options, function(error, namespace){
+                assert.equal(error.code, 671);
+                assert.equal(error.msg, "Error while deleting the namespace");
+                assert.ok(error);
+                done();
+            });
+        });
+
+        it("Success - delete a perService namespace", function(done){
+            options.deployerConfig.namespace ={
+                "default": "soajs",
+                "perService": true
+            };
+
+            options.params = {
+                "serviceName": "testservice",
+                "env": "testenv"
+            };
+
+            drivers.deleteNameSpace(options, function(error){
+                assert.ifError(error);
+                done();
+            });
+        });
+    });
+
     //Testing the different methods of node and cluster management
     describe("Testing kubernetes cluster/node management", function() {
 
         //Success in listing the cluster nodes
         it("Success - listing nodes", function(done) {
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             drivers.listNodes(options, function(error, nodes){
                 assert.ok(nodes);
                 interData.nodeId = nodes[0].id;
@@ -38,6 +166,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Failure in inspecting node
         it("Fail - inspecting node", function(done) {
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": "nothing"
             };
@@ -52,6 +185,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Success in inspecting node
         it("Success - inspecting node", function(done) {
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": interData.nodeId
             };
@@ -64,6 +202,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Failure in updating node
         it("Fail - updating node", function(done) {
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": "nothing",
                 "update": "Nothing"
@@ -79,6 +222,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Success in updating node
         it("Success - updating node", function(done) {
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": interData.nodeId,
                 "availability": "active"
@@ -96,7 +244,11 @@ describe("Testing kubernetes driver functionality", function() {
     describe("Testing kubernetes service management", function() {
 
         //Successfully deploying a service global mode
-        it("Success - service deployment global mode", function(done){
+        it("Success - service deployment global mode - global namespace - readinessProbes", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
 
             options.params = {
                 "env": "dev",
@@ -130,16 +282,24 @@ describe("Testing kubernetes driver functionality", function() {
                 "network": "soajsnet",
                 "ports": [
                     {
-                        "name": "service-port",
+                        "name": "service",
                         "isPublished": false,
                         "target": 4002
                     },
                     {
-                        "name": "maintenance-port",
+                        "name": "maintenance",
                         "isPublished": false,
                         "target": 5002
                     }
-                ]
+                ],
+                "readinessProbe": {
+                    "initialDelaySeconds": 5,
+                    "timeoutSeconds": 5,
+                    "periodSeconds": 3,
+                    "successThreshold": 1,
+                    "failureThreshold": 3,
+                    "port": 5002
+                },
             };
 
             drivers.deployService(options, function(error, service){
@@ -150,15 +310,20 @@ describe("Testing kubernetes driver functionality", function() {
                     };
 
                     drivers.listServices(options, function(error, service){
-                        interData.globalId = service[0].id
+                        interData.globalId = service[0].id;
                         done();
                     });
                 }, 2000);
             });
         });
 
-        //Successfully deploying a service global mode
-        it("Success - service deployment replicated mode (needed for tests below)", function(done){
+        //Successfully deploying a service replicated mode
+        it("Success - service deployment replicated mode (needed for tests below) - global namespace", function(done){
+
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
 
             options.params = {
                 "env": "dev2",
@@ -193,12 +358,12 @@ describe("Testing kubernetes driver functionality", function() {
                 "network": "soajsnet",
                 "ports": [
                     {
-                        "name": "service-port",
+                        "name": "service",
                         "isPublished": false,
                         "target": 4004
                     },
                     {
-                        "name": "maintenance-port",
+                        "name": "maintenance",
                         "isPublished": false,
                         "target": 5004
                     }
@@ -222,6 +387,10 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Successfully deploying a service replicated mode
         it("Success - service deployment replicated mode", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
 
             options.params = {
                 "env": "dashboard",
@@ -269,12 +438,12 @@ describe("Testing kubernetes driver functionality", function() {
                 "network": "soajsnet",
                 "ports": [
                     {
-                        "name": "service-port",
+                        "name": "service",
                         "isPublished": false,
                         "target": 4009
                     },
                     {
-                        "name": "maintenance-port",
+                        "name": "maintenance",
                         "isPublished": false,
                         "target": 5009
                     }
@@ -298,6 +467,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Failure to deploy service (Deployment exists already)
         it("Fail - service deployment (Deployment exists already)", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "env": "dashboard",
                 "name": "proxy",
@@ -344,12 +518,12 @@ describe("Testing kubernetes driver functionality", function() {
                 "network": "soajsnet",
                 "ports": [
                     {
-                        "name": "service-port",
+                        "name": "service",
                         "isPublished": false,
                         "target": 4003
                     },
                     {
-                        "name": "maintenance-port",
+                        "name": "maintenance",
                         "isPublished": false,
                         "target": 5003
                     }
@@ -365,6 +539,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Failure in scaling a deployed service
         it("Fail - Scale service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": "nothing",
                 "replica": "nothing"
@@ -380,9 +559,14 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Success in scaling a deployed service
         it("Success - Scale service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": interData.replicaId,
-                "scale": 4
+                "scale": 3
             };
 
             drivers.scaleService(options, function(error, service){
@@ -395,6 +579,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Failure in redeploying a deployed service
         it("Fail - redeploy service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": "nothing",
                 "mode": "deployment"
@@ -410,6 +599,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Success in redeploying a deployed service without UI
         it("Success - redeploy service without UI", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": interData.id,
                 "mode": "deployment"
@@ -425,6 +619,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Success in redeploying a deployed service with UI
         it("Success - redeploy service with UI", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": interData.id,
                 "mode": "deployment"
@@ -449,6 +648,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Failure in deleting a deployed service
         it("Fail - delete service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": "nothing",
                 "replica": "nothing",
@@ -465,6 +669,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Success in deleting a deployed replicated service
         it("Success - delete replicated service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "mode": "deployment",
                 "id": interData.id
@@ -478,6 +687,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Success in deleting a deployed global service
         it("Success - delete global service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "mode": "daemonset",
                 "id": interData.globalId
@@ -494,6 +708,11 @@ describe("Testing kubernetes driver functionality", function() {
     describe("Testing kubernetes service finding/listing/inspection", function(){
         //Finding a service that does exist
         it("Success - finding service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "env": "dashboard",
                 "serviceName": "proxy"
@@ -507,6 +726,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Finding a service that does not exist
         it("Fail - finding service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "env": "nothing",
                 "serviceName": "nothing",
@@ -522,6 +746,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Listing services of an environment that does exist
         it("Success - listing services", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "env": "dashboard"
             };
@@ -533,6 +762,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Inspecting a service that does not exist
         it("Fail - inpsecting service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": "dashboard"
             };
@@ -546,6 +780,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Inspecting a service that does exist
         it("Success - inspecting service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": interData.replicaId
             };
@@ -558,6 +797,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Getting the latest version of a service that does exists
         it("Success - Getting the latest version of a service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "env": "dashboard",
                 "serviceName": "proxy"
@@ -571,6 +815,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Getting the latest version of a service that does not exists
         it("Fail - Getting the latest version of a service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "env": "nothing",
                 "serviceName": "nothing"
@@ -586,6 +835,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Getting the service host of a service that does exists
         it("Success - Getting the service host of a service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "env": "dashboard",
                 "serviceName": "proxy"
@@ -599,6 +853,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Getting the service host of a service that does not exists
         it("Fail - Getting the service host of a service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "env": "nothing",
                 "serviceName": "nothing"
@@ -617,6 +876,11 @@ describe("Testing kubernetes driver functionality", function() {
     describe("Testing kubernetes task operations", function(){
         //Inspecting a task that does not exist
         it("Fail - inspecting task", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "taskId": "nothing"
             };
@@ -630,6 +894,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Inspecting a task that does exist
         it("Success - inspecting service", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "taskId": interData.taskId
             };
@@ -641,6 +910,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Performing a maintenance operation of a container that does not exist
         it("Fail - maintenance operation", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": "nothing"
             };
@@ -655,6 +929,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Performing a maintenance operation of a container that does exist
         it("Success - maintenance operation", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "id": interData.replicaId,
                 "maintenancePort": 5009,
@@ -669,6 +948,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //getting the logs of a containter that does not exist
         it("Fail - get container logs", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "taskId": "nothing"
             };
@@ -682,6 +966,11 @@ describe("Testing kubernetes driver functionality", function() {
 
         //Getting the logs of a container that does exist
         it("Success - get container logs", function(done){
+            options.deployerConfig.namespace = {
+                "default": "soajs",
+                "perService": false
+            };
+
             options.params = {
                 "taskId": interData.taskId
             };
